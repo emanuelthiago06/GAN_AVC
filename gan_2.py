@@ -9,10 +9,10 @@ import numpy as np
 import os
 
 # Parâmetros
-tamanho_imagem = (64, 64)
+tamanho_imagem = (128, 128)
 canal = 1  # Imagem em escala de cinza
 BUFFER_SIZE = 60000
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 
 # Função para normalizar as imagens
 def normalize(image):
@@ -51,10 +51,13 @@ def constroi_gerador():
     modelo.add(layers.LeakyReLU())
     
 
-    modelo.add(layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
     modelo.add(layers.LeakyReLU())
     
     modelo.add(layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.LeakyReLU())
+
+    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
     modelo.add(layers.LeakyReLU())
     
     modelo.add(layers.Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
@@ -64,7 +67,7 @@ def constroi_gerador():
 # Criando o discriminador
 def constroi_discriminador():
     modelo = keras.Sequential()
-    modelo.add(layers.Conv2D(64, (3, 3), strides=(2, 2), padding='same', input_shape=(64, 64, 1)))
+    modelo.add(layers.Conv2D(64, (3, 3), strides=(2, 2), padding='same', input_shape=(128, 128, 1)))
     modelo.add(layers.LeakyReLU())
     
     modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
@@ -73,6 +76,9 @@ def constroi_discriminador():
     modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
     modelo.add(layers.LeakyReLU())
     
+    modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
+    modelo.add(layers.LeakyReLU())
+
     modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
     modelo.add(layers.LeakyReLU())
     
@@ -85,20 +91,27 @@ def constroi_discriminador():
 def constroi_discriminador_2():
     model = Sequential()
 	# normal
-    model.add(Conv2D(64, (3,3), padding='same', input_shape=(64,64,1)))
+    model.add(Conv2D(64, (3,3), padding='same', input_shape=(128,128,1)))
     model.add(LeakyReLU(alpha=0.2))
+    model.add(Dropout(0.5))
 	# downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
+    model.add(Dropout(0.5))
 	# downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
     # downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
+    model.add(Dropout(0.3))
 	# downsample
     model.add(Conv2D(256, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
+
+    model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
+    model.add(LeakyReLU(alpha=0.2))
+    model.add(Dropout(0.3))
 	# classifier
     model.add(Flatten())
     model.add(Dropout(0.5))
@@ -119,7 +132,7 @@ gerador = constroi_gerador()
 discriminador = constroi_discriminador_2()
 
 # Otimizadores
-optimizer_gerador = keras.optimizers.Adam(1e-4, beta_1 = 0.5)
+optimizer_gerador = keras.optimizers.Adam(4e-4, beta_1 = 0.5)
 optimizer_discriminador = keras.optimizers.Adam(1e-4, beta_1 = 0.5)
 
 # Função de treinamento@tf.function
@@ -154,7 +167,7 @@ def gera_e_salva_imagens(modelo, epoca, seed):
     #     plt.imshow(imagens_geradas[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
     #     plt.axis('off')
     
-    plt.savefig(f'imagem_epoca_{epoca}.png')
+    plt.savefig(f'imagem_128_epoca_{epoca}.png')
     #plt.show()
 
 # Loop de treinamento
@@ -168,9 +181,12 @@ def treino(dataset, epocas):
         epoca+=1
         print(f"Epoca {epoca}:\nLoss do gerador = {loss_g}\nLoss do discriminador = {loss_d}\nLoss do discriminador fake: {loss_d_f}\nLoss do discriminador real: {loss_d_r}\n\n")
         count+=1
-        if count % 10 == 0:
+        if count % 100 == 0:
             gera_e_salva_imagens(gerador, epoca, seed)
             print(f'Época {epoca} concluída')
 
 # Executando o treinamento
-treino(train_ds, epocas=200)
+treino(train_ds, epocas=1)
+
+gerador.save("gerador_modelo.keras")
+discriminador.save("discriminador_modelo.keras")

@@ -1,3 +1,6 @@
 **.png
 data
 .vscode
+*.keras
+venv
+.venv
