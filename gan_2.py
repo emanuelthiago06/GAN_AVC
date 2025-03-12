@@ -47,14 +47,17 @@ def constroi_gerador():
     modelo.add(layers.LeakyReLU())
     modelo.add(layers.Reshape((4, 4, 256)))
     
-    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    
+    modelo.add(layers.Conv2DTranspose(256, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.BatchNormalization())
     modelo.add(layers.LeakyReLU())
     
 
     modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.BatchNormalization())
     modelo.add(layers.LeakyReLU())
     
-    modelo.add(layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
     modelo.add(layers.LeakyReLU())
 
     modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
@@ -73,7 +76,7 @@ def constroi_discriminador():
     modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
     modelo.add(layers.LeakyReLU())
     
-    modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
+    modelo.add(layers.Conv2D(128, (2, 2), strides=(2, 2), padding='same'))
     modelo.add(layers.LeakyReLU())
     
     modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
@@ -104,7 +107,7 @@ def constroi_discriminador_2():
     # downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.3))
+    model.add(Dropout(0.4))
 	# downsample
     model.add(Conv2D(256, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
@@ -132,8 +135,8 @@ gerador = constroi_gerador()
 discriminador = constroi_discriminador_2()
 
 # Otimizadores
-optimizer_gerador = keras.optimizers.Adam(4e-4, beta_1 = 0.5)
-optimizer_discriminador = keras.optimizers.Adam(1e-4, beta_1 = 0.5)
+optimizer_gerador = keras.optimizers.Adam(2.5e-4, beta_1 = 0.5)
+optimizer_discriminador = keras.optimizers.Adam(.5e-4, beta_1 = 0.5)
 
 # Função de treinamento@tf.function
 def passo_treino_2(imagens):
@@ -186,7 +189,7 @@ def treino(dataset, epocas):
             print(f'Época {epoca} concluída')
 
 # Executando o treinamento
-treino(train_ds, epocas=1)
+treino(train_ds, epocas=2000)
 
-gerador.save("gerador_modelo.keras")
-discriminador.save("discriminador_modelo.keras")
+gerador.save("gerador_modelo_3.keras")
+discriminador.save("discriminador_modelo_3.keras")
