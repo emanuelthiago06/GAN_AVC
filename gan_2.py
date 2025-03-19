@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, Sequential
-from tensorflow.keras.layers import Conv2D, LeakyReLU, Flatten, Dropout, Dense
+from tensorflow.keras.layers import Conv2D, LeakyReLU, Flatten, Dropout, Dense, BatchNormalization
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import os
 tamanho_imagem = (128, 128)
 canal = 1  # Imagem em escala de cinza
 BUFFER_SIZE = 60000
-BATCH_SIZE = 64
+BATCH_SIZE = 50
 
 # Função para normalizar as imagens
 def normalize(image):
@@ -43,78 +43,89 @@ plot_a_few_images(train_ds)
 # Criando o gerador
 def constroi_gerador():
     modelo = keras.Sequential()
-    modelo.add(layers.Dense(4*4*256, use_bias=False, input_shape=(100,)))
+    
+    modelo.add(layers.Dense(4*4*512, use_bias=True, input_shape=(128,)))  
     modelo.add(layers.LeakyReLU())
-    modelo.add(layers.Reshape((4, 4, 256)))
-    
-    
-    modelo.add(layers.Conv2DTranspose(256, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.Reshape((4, 4, 512)))  
+
+    modelo.add(layers.Conv2DTranspose(256, (7, 7), strides=(2, 2), padding='same', use_bias=False))
     modelo.add(layers.BatchNormalization())
     modelo.add(layers.LeakyReLU())
-    
+    modelo.add(Dropout(0.2))  # Dropout ajuda na estabilidade
 
-    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.Conv2DTranspose(256, (7, 7), strides=(2, 2), padding='same', use_bias=True))
+    #modelo.add(layers.BatchNormalization())
+    modelo.add(layers.LeakyReLU())
+    modelo.add(Dropout(0.2))
+
+    modelo.add(layers.Conv2DTranspose(128, (7, 7), strides=(2, 2), padding='same', use_bias=False))
     modelo.add(layers.BatchNormalization())
     modelo.add(layers.LeakyReLU())
-    
-    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+
+    modelo.add(layers.Conv2DTranspose(128, (7, 7), strides=(2, 2), padding='same', use_bias=False))
+    modelo.add(layers.BatchNormalization())
     modelo.add(layers.LeakyReLU())
 
-    modelo.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
-    modelo.add(layers.LeakyReLU())
-    
-    modelo.add(layers.Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
+    modelo.add(layers.Conv2DTranspose(1, (7, 7), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
     
     return modelo
-
 # Criando o discriminador
 def constroi_discriminador():
-    modelo = keras.Sequential()
-    modelo.add(layers.Conv2D(64, (3, 3), strides=(2, 2), padding='same', input_shape=(128, 128, 1)))
-    modelo.add(layers.LeakyReLU())
+    model = Sequential()
     
-    modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
-    modelo.add(layers.LeakyReLU())
+    # Camada inicial (sem BatchNorm)
+    model.add(Conv2D(64, (3,3), padding='same', input_shape=(128,128,1)))
+    model.add(LeakyReLU(alpha=0.2))
+    #model.add(Dropout(0.2))
     
-    modelo.add(layers.Conv2D(128, (2, 2), strides=(2, 2), padding='same'))
-    modelo.add(layers.LeakyReLU())
-    
-    modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
-    modelo.add(layers.LeakyReLU())
+    # Redução progressiva
+    model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
+    model.add(BatchNormalization())  # Adicionado para estabilizar
+    model.add(LeakyReLU(alpha=0.2))
 
-    modelo.add(layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
-    modelo.add(layers.LeakyReLU())
+    model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
+    model.add(BatchNormalization())  
+    model.add(LeakyReLU(alpha=0.2))
+    #model.add(Dropout(0.2))
+
+    model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
+    model.add(BatchNormalization())  
+    model.add(LeakyReLU(alpha=0.2))
+    #model.add(Dropout(0.2))
+
+    model.add(Conv2D(64, (3,3), strides=(2,2), padding='same'))
+    model.add(BatchNormalization())  
+    model.add(LeakyReLU(alpha=0.2))
+    model.add(Dropout(0.2))
+
+    model.add(Flatten())
+    model.add(Dropout(0.5))
+    model.add(Dense(1, activation='sigmoid'))  # Alterado para sigmoid
     
-    modelo.add(layers.Flatten())
-    modelo.add(layers.Dropout(0.5))
-    modelo.add(layers.Dense(1))
-    
-    return modelo
+    return model
 
 def constroi_discriminador_2():
     model = Sequential()
 	# normal
-    model.add(Conv2D(64, (3,3), padding='same', input_shape=(128,128,1)))
+    model.add(Conv2D(64, (3,3), padding='same', input_shape=(64,64,1)))
     model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.5))
+    model.add(Dropout(0.1))
 	# downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.5))
+    model.add(Dropout(0.2))
 	# downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
-    # downsample
+    model.add(Dropout(0.2))
+	# downsample
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.4))
-	# downsample
-    model.add(Conv2D(256, (3,3), strides=(2,2), padding='same'))
-    model.add(LeakyReLU(alpha=0.2))
+    model.add(Dropout(0.1))
 
     model.add(Conv2D(128, (3,3), strides=(2,2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
-    model.add(Dropout(0.3))
+    model.add(Dropout(0.1))
 	# classifier
     model.add(Flatten())
     model.add(Dropout(0.5))
@@ -123,25 +134,25 @@ def constroi_discriminador_2():
 
 # Definição das funções de perda
 def loss_discriminador(real_output, fake_output):
-    real_loss = keras.losses.BinaryCrossentropy(from_logits=True)(tf.ones_like(real_output), real_output)
-    fake_loss = keras.losses.BinaryCrossentropy(from_logits=True)(tf.zeros_like(fake_output), fake_output)
+    real_loss = keras.losses.BinaryCrossentropy()(tf.ones_like(real_output), real_output)
+    fake_loss = keras.losses.BinaryCrossentropy()(tf.zeros_like(fake_output), fake_output)
     return real_loss, fake_loss
 
 def loss_gerador(fake_output):
-    return keras.losses.BinaryCrossentropy(from_logits=True)(tf.ones_like(fake_output), fake_output)
+    return keras.losses.BinaryCrossentropy()(tf.ones_like(fake_output), fake_output)
 
 # Criando os modelos
 gerador = constroi_gerador()
-discriminador = constroi_discriminador_2()
+discriminador = constroi_discriminador()
 
 # Otimizadores
-optimizer_gerador = keras.optimizers.Adam(2.5e-4, beta_1 = 0.5)
-optimizer_discriminador = keras.optimizers.Adam(.5e-4, beta_1 = 0.5)
+optimizer_gerador = keras.optimizers.Adam(1e-4, beta_1 = 0.5)
+optimizer_discriminador = keras.optimizers.Adam(1e-4, beta_1 = 0.5)
 
 # Função de treinamento@tf.function
 def passo_treino_2(imagens):
     batch_size = tf.shape(imagens)[0]
-    ruido = tf.random.normal([batch_size, 100])
+    ruido = tf.random.normal([batch_size, 128])
     
     with tf.GradientTape() as tape_g, tf.GradientTape() as tape_d:
         imagens_falsas = gerador(ruido, training=True)
@@ -155,8 +166,10 @@ def passo_treino_2(imagens):
     gradientes_g = tape_g.gradient(loss_g, gerador.trainable_variables)
     gradientes_d = tape_d.gradient(loss_d, discriminador.trainable_variables)
     
-    optimizer_gerador.apply_gradients(zip(gradientes_g, gerador.trainable_variables))
     optimizer_discriminador.apply_gradients(zip(gradientes_d, discriminador.trainable_variables))
+
+    optimizer_gerador.apply_gradients(zip(gradientes_g, gerador.trainable_variables))
+    optimizer_gerador.apply_gradients(zip(gradientes_g, gerador.trainable_variables))
     
     return loss_g, loss_d, loss_d_r, loss_d_f
 
@@ -175,7 +188,7 @@ def gera_e_salva_imagens(modelo, epoca, seed):
 
 # Loop de treinamento
 def treino(dataset, epocas):
-    seed = tf.random.normal([1, 100])
+    seed = tf.random.normal([1, 128])
     count = 0
     
     for epoca in range(epocas):
@@ -191,5 +204,5 @@ def treino(dataset, epocas):
 # Executando o treinamento
 treino(train_ds, epocas=2000)
 
-gerador.save("gerador_modelo_3.keras")
-discriminador.save("discriminador_modelo_3.keras")
+gerador.save("gerador_modelo_1_64.keras")
+discriminador.save("discriminador_modelo_1_64.keras")
